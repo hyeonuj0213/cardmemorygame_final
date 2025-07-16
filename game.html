@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>메모리 카드 게임 - 난이도 & 시간제한</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      background-size: cover;
+      background-position: center;
+      transition: background-image 1s ease;
+    }
+
+    #game-container {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 20px;
+      max-width: 600px;
+      margin: 30px auto;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    #game-board {
+      display: grid;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .card {
+      width: 80px;
+      height: 100px;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+    }
+
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front,
+    .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+    }
+
+    .card-front {
+      background-color: #f0f0f0;
+    }
+
+    .card-back {
+      background-color: #ffd54f;
+      transform: rotateY(180deg);
+    }
+
+    #score, #high-score, #level, #timer {
+      margin: 8px 0;
+      font-size: 1.1rem;
+    }
+
+    #message {
+      margin: 12px 0;
+      font-weight: bold;
+      color: #2e7d32;
+    }
+
+    #restart-btn {
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background-color: #42a5f5;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    #restart-btn:hover {
+      background-color: #1e88e5;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <h1>메모리 카드 게임</h1>
+    <div id="game-board"></div>
+    <div id="score">점수: 0</div>
+    <div id="high-score">최고기록: 0</div>
+    <div id="level">난이도: 1</div>
+    <div id="timer">남은 시간: 180초</div>
+    <div id="message"></div>
+    <button id="restart-btn">다시 시작</button>
+  </div>
+
+  <script>
+    const allCards = [
+  ['🍎', '🍌', '🍇', '🍉'], // 1단계 - 4쌍 (8장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝'], // 2단계 - 6쌍 (12장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑'], // 3단계 - 8쌍 (16장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑', '🥥', '🍓'], // 4단계 - 10쌍 (20장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑', '🥥', '🍓', '🍋', '🍐'], // 5단계 - 12쌍 (24장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑', '🥥', '🍓', '🍋', '🍐', '🥭', '🍈'], // 6단계 - 14쌍 (28장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑', '🥥', '🍓', '🍋', '🍐', '🥭', '🍈', '🍅'], // 7단계 - 15쌍 (30장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑', '🥥', '🍓', '🍋', '🍐', '🥭', '🍈', '🍅', '🥕'], // 8단계 - 16쌍 (32장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑', '🥥', '🍓', '🍋', '🍐', '🥭', '🍈', '🍅', '🥕', '🍆', '🍏'], // 9단계 - 18쌍 (36장)
+  ['🍎', '🍌', '🍇', '🍉', '🍒', '🥝', '🍍', '🍑', '🥥', '🍓', '🍋', '🍐', '🥭', '🍈', '🍅', '🥕', '🍆', '🍏', '🍊', '🌽'] // 10단계 - 20쌍 (40장)
+];
+
+
+    const backgroundImages = [
+      "url('https://plus.unsplash.com/premium_photo-1661277752817-ce323dfbdbac?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+      "url('https://plus.unsplash.com/premium_photo-1661277752817-ce323dfbdbac?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1495147466023-ac5c588e2e94?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8ZGVzc2VydHxlbnwwfHwwfHx8MA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1495147466023-ac5c588e2e94?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8ZGVzc2VydHxlbnwwfHwwfHx8MA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1619566636858-adf3ef46400b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1619566636858-adf3ef46400b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1603847734787-9e8a3f3e9d60?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1603847734787-9e8a3f3e9d60?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1507048947301-7afc2aca0edc?q=80&w=1172&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+      "url('https://images.unsplash.com/photo-1507048947301-7afc2aca0edc?q=80&w=1172&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')"
+    ];
+
+    let currentLevel = 0;
+    let cards = [];
+    let flippedCards = [];
+    let matchedCount = 0;
+    let score = 0;
+    let timer = 180;
+    let timerId = null;
+
+    let highScore = localStorage.getItem('memoryHighScore') || 0;
+
+    const board = document.getElementById('game-board');
+    const message = document.getElementById('message');
+    const restartBtn = document.getElementById('restart-btn');
+    const scoreDisplay = document.getElementById('score');
+    const highScoreDisplay = document.getElementById('high-score');
+    const levelDisplay = document.getElementById('level');
+    const timerDisplay = document.getElementById('timer');
+
+    function shuffle(array) {
+      for (let i = array.length -1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i+1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function updateBackground() {
+      const image = backgroundImages[currentLevel % backgroundImages.length];
+      document.body.style.backgroundImage = `
+        linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)),
+        ${image}
+      `;
+    }
+
+    function updateScore(points = 0) {
+      score += points;
+      scoreDisplay.textContent = `점수: ${score}`;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('memoryHighScore', highScore);
+        highScoreDisplay.textContent = `최고기록: ${highScore}`;
+      }
+    }
+
+    function updateLevel() {
+      levelDisplay.textContent = `난이도: ${currentLevel + 1}`;
+    }
+
+    function updateTimerDisplay() {
+      timerDisplay.textContent = `남은 시간: ${timer}초`;
+    }
+
+    function createBoard() {
+      updateBackground(); // ✅ 배경 변경
+      board.innerHTML = '';
+      cards = [...allCards[currentLevel], ...allCards[currentLevel]];
+      shuffle(cards);
+      flippedCards = [];
+      matchedCount = 0;
+      updateScore(0);
+      updateLevel();
+      updateTimerDisplay();
+      highScoreDisplay.textContent = `최고기록: ${highScore}`;
+      message.textContent = '';
+
+      const columns = Math.ceil(Math.sqrt(cards.length));
+      board.style.gridTemplateColumns = `repeat(${columns}, 80px)`;
+
+      cards.forEach((emoji) => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.dataset.emoji = emoji;
+
+        card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front"></div>
+            <div class="card-back">${emoji}</div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => flipCard(card));
+        board.appendChild(card);
+      });
+    }
+
+    function flipCard(card) {
+      if (
+        flippedCards.length === 2 ||
+        card.classList.contains('flipped') ||
+        flippedCards.includes(card) ||
+        timer === 0
+      ) return;
+
+      card.classList.add('flipped');
+      flippedCards.push(card);
+
+      if (flippedCards.length === 2) checkMatch();
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      if (card1.dataset.emoji === card2.dataset.emoji) {
+        matchedCount += 2;
+        updateScore(10);
+        flippedCards = [];
+
+        if (matchedCount === cards.length) {
+          if (currentLevel < allCards.length - 1) {
+            message.textContent = '🎉 레벨 클리어! 다음 난이도로 넘어갑니다!';
+            currentLevel++;
+            setTimeout(createBoard, 1500);
+          } else {
+            message.textContent = '🏆 모든 레벨 완료! 축하합니다!';
+            clearInterval(timerId);
+          }
+        }
+      } else {
+        setTimeout(() => {
+          card1.classList.remove('flipped');
+          card2.classList.remove('flipped');
+          flippedCards = [];
+        }, 1000);
+      }
+    }
+
+    function startTimer() {
+      clearInterval(timerId);
+      timer = 180;
+      updateTimerDisplay();
+      timerId = setInterval(() => {
+        timer--;
+        updateTimerDisplay();
+        if (timer <= 0) {
+          clearInterval(timerId);
+          message.textContent = '⏰ 시간이 종료되었습니다! 게임을 다시 시작해보세요.';
+          document.querySelectorAll('.card').forEach(card => {
+            card.style.pointerEvents = 'none';
+          });
+        }
+      }, 1000);
+    }
+
+    restartBtn.addEventListener('click', () => {
+      currentLevel = 0;
+      score = 0;
+      createBoard();
+      message.textContent = '';
+      startTimer();
+    });
+
+    createBoard();
+    startTimer();
+  </script>
+</body>
+</html>
